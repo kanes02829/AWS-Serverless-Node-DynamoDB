@@ -1,0 +1,137 @@
+service: Generative-AI
+useDotenv: true
+package:
+  individually: true
+provider:
+  name: aws
+  runtime: nodejs18.x
+  tracing:
+    lambda: true
+  region: eu-west-3
+  memorySize: 1024
+  timeout: 90
+  stage: development
+  environment:
+    DYNAMODB_TABLE: ${self:service}-${sls:stage}
+  iam:
+    role: arn:aws:iam::228808322276:role/Lambda
+
+plugins:
+  - serverless-dotenv-plugin
+  - serverless-offline
+
+custom:
+  serverless-offline:
+    httpPort: 4000
+  allowedHeaders:
+    - Accept
+    - Content-Type
+    - Content-Length
+    - Authorization
+  stage: ${opt:stage, self:provider.stage}
+  bucket: ${self:service}-${self:provider.stage}
+  customDomain:
+    domainName: dev-sdk.yagagames.com
+    basePath: ''
+    stage: ${self:provider.stage}
+    createRoute53Record: true
+  optimize:
+    external:
+      - aws-jwt-verify
+
+functions:
+  test:
+    handler: api/test/test.handler
+    description: GET /api/test
+    events:
+      - http:
+          path: /api/test
+          method: get
+          cors:
+            origin: '*'
+            header: ${self:custom.allowedHeaders}
+  # auth
+  signup_email:
+    handler: api/auth/signup_email.handler
+    description: POST /api/auth
+    events:
+      - http:
+          path: /api/auth/signup_email
+          method: post
+          cors:
+            origin: '*'
+            header: ${self:custom.allowedHeaders}
+  verify_email:
+    handler: api/auth/verify_email.handler
+    description: POST /api/auth
+    events:
+      - http:
+          path: /api/auth/verify_email
+          method: post
+          cors:
+            origin: '*'
+            header: ${self:custom.allowedHeaders}
+  # db
+  create_table:
+    handler: api/db/create_table.handler
+    description: POST /api/db
+    events:
+      - http:
+          path: /api/db/create_table
+          method: post
+          cors:
+            origin: '*'
+            header: ${self:custom.allowedHeaders}
+  delete_table:
+    handler: api/db/delete_table.handler
+    description: POST /api/db
+    events:
+      - http:
+          path: /api/db/delete_table
+          method: post
+          cors:
+            origin: '*'
+            header: ${self:custom.allowedHeaders}
+  # commands
+  add_files:
+    handler: api/commands/add_files.handler
+    description: POST /api/commands
+    events:
+      - http:
+          path: /api/commands/add_files
+          method: post
+          cors:
+            origin: '*'
+            header: ${self:custom.allowedHeaders}
+  crawl_website:
+    handler: api/commands/crawl_website.handler
+    description: POST /api/commands
+    events:
+      - http:
+          path: /api/commands/crawl_website
+          method: post
+          cors:
+            origin: '*'
+            header: ${self:custom.allowedHeaders}
+  delete_user:
+    handler: api/commands/delete_user.handler
+    description: POST /api/commands
+    events:
+      - http:
+          path: /api/commands/delete_user
+          method: post
+          cors:
+            origin: '*'
+            header: ${self:custom.allowedHeaders}
+  rename_chatbot:
+    handler: api/commands/rename_chatbot.handler
+    description: POST /api/commands
+    events:
+      - http:
+          path: /api/commands/rename_chatbot
+          method: post
+          cors:
+            origin: '*'
+            header: ${self:custom.allowedHeaders}
+resources:
+  Resources:

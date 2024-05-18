@@ -1,0 +1,185 @@
+service: Generative-AI
+useDotenv: true
+package:
+  individually: true
+provider:
+  name: aws
+  runtime: nodejs18.x
+  tracing:
+    lambda: true
+  region: eu-west-3
+  memorySize: 1024
+  timeout: 90
+  stage: development
+  iam:
+    role: ExecutionRole
+  environment:
+    DYNAMODB_TABLE: ${self:service}-${sls:stage}
+
+plugins:
+  - serverless-dotenv-plugin
+  - serverless-offline
+
+custom:
+  serverless-offline:
+    httpPort: 4000
+  allowedHeaders:
+    - Accept
+    - Content-Type
+    - Content-Length
+    - Authorization
+  stage: ${opt:stage, self:provider.stage}
+  bucket: ${self:service}-${self:provider.stage}
+  customDomain:
+    domainName: dev-sdk.yagagames.com
+    basePath: ''
+    stage: ${self:provider.stage}
+    createRoute53Record: true
+  optimize:
+    external:
+      - aws-jwt-verify
+
+functions:
+  test:
+    role: DynamoDBRole
+    handler: api/test/test.handler
+    description: GET /api/test
+    events:
+      - http:
+          path: /api/test
+          method: get
+          cors:
+            origin: '*'
+            header: ${self:custom.allowedHeaders}
+  signup_email:
+    role: DynamoDBRole
+    handler: api/auth/signup_email.handler
+    events:
+      - http:
+          path: /api/auth/signup_email
+          method: post
+          cors:
+            origin: '*'
+            header: ${self:custom.allowedHeaders}
+  verify_email:
+    role: DynamoDBRole
+    handler: api/auth/verify_email.handler
+    events:
+      - http:
+          path: /api/auth/verify_email
+          method: post
+          cors:
+            origin: '*'
+            header: ${self:custom.allowedHeaders}
+  create_table:
+    role: DynamoDBRole
+    handler: api/db/create_table.handler
+    events:
+      - http:
+          path: /api/db/create_table
+          method: post
+          cors:
+            origin: '*'
+            header: ${self:custom.allowedHeaders}
+  delete_table:
+    role: DynamoDBRole
+    handler: api/db/delete_table.handler
+    events:
+      - http:
+          path: /api/db/delete_table
+          method: post
+          cors:
+            origin: '*'
+            header: ${self:custom.allowedHeaders}
+  crawl_website:
+    handler: api/commands/crawl_website.handler
+    events:
+      - http:
+          path: /api/commands/crawl_website
+          method: post
+          cors:
+            origin: '*'
+            header: ${self:custom.allowedHeaders}
+resources:
+  Resources:
+    # TodosDynamoDbTable:
+    #   Type: 'AWS::DynamoDB::Table'
+    #   DeletionPolicy: Retain
+    #   Properties:
+    #     AttributeDefinitions:
+    #       - AttributeName: id
+    #         AttributeType: S
+    #     KeySchema:
+    #       - AttributeName: id
+    #         KeyType: HASH
+    #     BillingMode: PAY_PER_REQUEST
+    #     TableName: ${self:provider.environment.DYNAMODB_TABLE}
+    ExecutionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: ${self:service}-${self:custom.stage}-execution-role
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/service-role/AWSLambdaRole
+          - arn:aws:iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy
+          - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+          - arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess
+        Policies:
+          - PolicyName: ${self:service}-${self:custom.stage}-execution-policy
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: 'Allow'
+                  Action:
+                    - s3:*
+                  Resource:
+                    - 'arn:aws:s3:::${self:custom.bucket}/*'
+                    - '*'
+    # StorageBucket:
+    #   Type: 'AWS::S3::Bucket'
+    #   Properties:
+    #     BucketName: ${self:custom.bucket}
+    #     CorsConfiguration:
+    #       CorsRules:
+    #         - AllowedOrigins:
+    #             - '*'
+    #           AllowedHeaders:
+    #             - '*'
+    #           AllowedMethods:
+    #             - GET
+    #             - PUT
+    #             - POST
+    #             - DELETE
+    #             - HEAD
+    #           MaxAge: 3000
+    # DynamoDBRole:
+    #   Type: AWS::IAM::Role
+    #   Properties:
+    #     RoleName: ${self:service}-${self:custom.stage}-dynamodb-role
+    #     AssumeRolePolicyDocument:
+    #       Version: '2012-10-17'
+    #       Statement:
+    #         - Effect: Allow
+    #           Principal:
+    #             Service:
+    #               - lambda.amazonaws.com
+    #           Action:
+    #             - sts:AssumeRole
+    #     Policies:
+    #       - PolicyName: ${self:service}-${self:custom.stage}-dynamodb-policy
+    #         PolicyDocument:
+    #           Version: '2012-10-17'
+    #           Statement:
+    #             - Effect: Allow
+    #               Action:
+    #                 - dynamodb:*
+    #               Resource:
+    #                 - '*'
